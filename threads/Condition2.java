@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.LinkedList;
+
 import nachos.machine.*;
 
 /**
@@ -22,6 +24,7 @@ public class Condition2 {
      */
     public Condition2(Lock conditionLock) {
 	this.conditionLock = conditionLock;
+        this.waitQueue = new LinkedList<KThread>();
     }
 
     /**
@@ -31,11 +34,20 @@ public class Condition2 {
      * automatically reacquire the lock before <tt>sleep()</tt> returns.
      */
     public void sleep() {
+    //Last modified by: Tang Boshi, on 23/03/2019
+    
+    /* Instead of using semaphore, I(Tang) use LinkedList as queue.*/
+    
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
-
+        
+	KThread currentThread = KThread.currentThread();
+	boolean intStatus = Machine.interrupt().disable();
 	conditionLock.release();
-
+        
+	waitQueue.add(currentThread);
+ 	KThread.sleep();  /*This method automatically gives control to another thread */
 	conditionLock.acquire();
+	Machine.interrupt().restore(intStatus);
     }
 
     /**
@@ -44,6 +56,10 @@ public class Condition2 {
      */
     public void wake() {
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+
+        if (!waitQueue.isEmpty())
+            ((KThread) waitQueue.removeFirst()).ready();
+            
     }
 
     /**
@@ -52,7 +68,11 @@ public class Condition2 {
      */
     public void wakeAll() {
 	Lib.assertTrue(conditionLock.isHeldByCurrentThread());
+
+        while (!waitQueue.isEmpty())
+            wake();
     }
 
+    private LinkedList<KThread>  waitQueue;
     private Lock conditionLock;
 }

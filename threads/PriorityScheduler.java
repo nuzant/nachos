@@ -128,26 +128,7 @@ public class PriorityScheduler extends Scheduler {
      */
 
 
-
-
-
-
-
-
-
-
-
-
 /*******************************************************************************************/
-
-
-
-
-
-
-
-
-
 
 
 
@@ -168,12 +149,20 @@ public class PriorityScheduler extends Scheduler {
 
 	public void waitForAccess(KThread thread) {
 	    Lib.assertTrue(Machine.interrupt().disabled());
-	    getThreadState(thread).waitForAccess(this);
+		getThreadState(thread).waitForAccess(this);
+
+		//debug info
+		Lib.debug('t',thread.toString() + " calling waitForAccess in " + name);
+		print();
 	}
 
 	public void acquire(KThread thread) {
 	    Lib.assertTrue(Machine.interrupt().disabled());
-	    getThreadState(thread).acquire(this);
+		getThreadState(thread).acquire(this);
+
+		//debug info
+		Lib.debug('t',thread.toString() + " calling acquire wrt " + name);
+		print();
 	}
 
 	public KThread nextThread() {
@@ -183,6 +172,11 @@ public class PriorityScheduler extends Scheduler {
 		ThreadState nextTS = queue.poll();
 		if(nextTS == null) return null;
 		nextTS.acquire(this);
+
+		//debug info
+		Lib.debug('t',name + " calling nextThread, next thread is " + nextTS.getThread().toString());
+		print();
+
 	    return nextTS.getThread();
 	}
 
@@ -200,9 +194,17 @@ public class PriorityScheduler extends Scheduler {
 	
 	public void print() {
 	    Lib.assertTrue(Machine.interrupt().disabled());
-	    // implement me (if you want)
+		// implement me (if you want)
+		String str = "Current content of " + name + ":";
+		for(ThreadState ts: queue){
+			str += " " + ts.thread.toString();
+		}
+		Lib.debug('t',str);
 	}
 	
+	public void setName(String str){
+		name = str;
+	}
 
 	/**
 	 * A treemap that contains all waiting threads in the queue, sorted with priority.
@@ -217,40 +219,15 @@ public class PriorityScheduler extends Scheduler {
 	
 	public boolean transferPriority;
 	public KThread lockingThread = null;
+	public String name = "defaultName";
     }
 
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     
 /*********************************************************************************************************/    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     
@@ -364,7 +341,7 @@ public class PriorityScheduler extends Scheduler {
 			if (needToPropagate)	//undergoes value change
 			{
 				ThreadState lockingState = getThreadState(waitingIn.lockingThread);
-				if (lockingState != null)
+				if (lockingState != null && waitingIn.transferPriority)
 					lockingState.updateEffectivePriority();
 			}
 		}
@@ -375,7 +352,6 @@ public class PriorityScheduler extends Scheduler {
 		/*
 		// update for setPriority()
 		effectivePriority = java.lang.Math.max(effectivePriority, priority);
-
 		// update for acquire()
 		if(waitingIn!=null){
 			waitingIn.queue.remove(this);
@@ -440,7 +416,8 @@ public class PriorityScheduler extends Scheduler {
 		time = Machine.timer().getTime();
 		waitQueue.queue.add(this);
 		
-		updateEffectivePriority();
+		if (waitQueue.lockingThread != null)
+			getThreadState(waitQueue.lockingThread).updateEffectivePriority();
 	}
 
 	/**
@@ -458,12 +435,12 @@ public class PriorityScheduler extends Scheduler {
 	public void acquire(PriorityQueue waitQueue) {
 		// implement me
 		if (waitQueue.lockingThread != null)
-		getThreadState(waitQueue.lockingThread).releaseQueue(waitQueue);
+			getThreadState(waitQueue.lockingThread).releaseQueue(waitQueue);
 		
 		waitQueue.lockingThread = this.thread;
 		waitingThis.add(waitQueue);
 		waitQueue.queue.remove(this);
-		waitingIn = null;
+		if (waitQueue == waitingIn)		waitingIn = null;
 		
 		updateEffectivePriority();
 	}	
@@ -483,19 +460,16 @@ public class PriorityScheduler extends Scheduler {
 
 
 
-
-
-
-
-
-
-
 /*****************************************************************************************************************/	
-	//copied selftest function
+	/*
 	public static void selfTest() {
 		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
 		KThread kt_1 = new KThread(), kt_2 = new KThread(), kt_3 = new KThread(), kt_4 = new KThread();
 		
+		kt_1.setName("schT1");
+		kt_2.setName("schT2");
+		kt_3.setName("schT3");
+		kt_4.setName("schT4");
 		boolean status = Machine.interrupt().disable();
 		
 		tq1.waitForAccess(kt_1);
@@ -523,5 +497,5 @@ public class PriorityScheduler extends Scheduler {
 		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
 		
 		Machine.interrupt().restore(status);
-	}
+	}*/
 }

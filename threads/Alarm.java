@@ -1,6 +1,7 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import java.util.TreeMap;
 
 /**
  * Uses the hardware timer to provide preemption, and to allow threads to sleep
@@ -15,9 +16,12 @@ public class Alarm {
      * alarm.
      */
     public Alarm() {
-	Machine.timer().setInterruptHandler(new Runnable() {
-		public void run() { timerInterrupt(); }
-	    });
+		sleepingThreads = new TreeMap<Long, KThread>();
+		Machine.timer().setInterruptHandler(new Runnable() {
+			public void run() {
+				timerInterrupt();
+			}
+		});
     }
 
     /**
@@ -27,6 +31,15 @@ public class Alarm {
      * that should be run.
      */
     public void timerInterrupt() {
+    /* Last modified by: TangBoshi, on 19/03/2019 */
+    /* I(Tang) implement this method so that this function maintains the heap (sleepingThreads)
+	and get those threads whose waiting time has expired into the ready queue.*/
+	
+	boolean intStatus = Machine.interrupt().disable();
+	long currentTime = Machine.timer().getTime();
+	while (!sleepingThreads.isEmpty() && this.sleepingThreads.firstKey() <= currentTime)
+		this.sleepingThreads.pollFirstEntry().getValue().ready();	/*Do periodic house keeping */
+	
 	KThread.currentThread().yield();
     }
 
@@ -45,9 +58,19 @@ public class Alarm {
      * @see	nachos.machine.Timer#getTime()
      */
     public void waitUntil(long x) {
-	// for now, cheat just to get something working (busy waiting is bad)
+	//Last modified by: Tang Boshi, on 19/03/2019
+	/* I(Tang) reimplement this method so that any thread calling this method will be
+	 * put in the sleepingThreads and go to sleep. The waking part is guaranteed by 
+	 * timerInterrupt handler
+	 */
 	long wakeTime = Machine.timer().getTime() + x;
-	while (wakeTime > Machine.timer().getTime())
-	    KThread.yield();
+    boolean intStatus = Machine.interrupt().disable();
+        
+    this.sleepingThreads.put(wakeTime, KThread.currentThread());
+    KThread.sleep();
+    Machine.interrupt().restore(intStatus);
+        
     }
+    
+    private TreeMap<Long, KThread> sleepingThreads;
 }

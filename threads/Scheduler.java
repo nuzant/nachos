@@ -158,6 +158,47 @@ public abstract class Scheduler {
     /**
      * self test method
      */
-    public static void selfTest(){
-    }
+
+    public static void selfTest() {
+        System.out.println("\nEntering selfTest() for PrioritySchedule....\n");
+        
+		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
+		KThread kt_1 = new KThread(), kt_2 = new KThread(), kt_3 = new KThread(), kt_4 = new KThread();
+        tq1.setName("queue1");
+        tq2.setName("queue2");
+        tq3.setName("queue3");
+		kt_1.setName("T1");
+		kt_2.setName("T2");
+		kt_3.setName("T3");
+		kt_4.setName("T4");
+		boolean status = Machine.interrupt().disable();
+		
+		tq1.waitForAccess(kt_1);
+		tq2.waitForAccess(kt_2);
+		tq3.waitForAccess(kt_3);
+		
+		tq1.acquire(kt_2);
+		tq2.acquire(kt_3);
+		tq3.acquire(kt_4);
+		
+		ThreadedKernel.scheduler.setPriority(kt_1, 6);
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==6);
+		
+        KThread kt_5 = new KThread();
+        kt_5.setName("T5");
+		
+		ThreadedKernel.scheduler.setPriority(kt_5, 7);
+		
+		tq1.waitForAccess(kt_5);
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
+		
+		tq1.nextThread();
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
+		
+        Machine.interrupt().restore(status);
+        System.out.println("\nExiting.....\n");
+	}
 }

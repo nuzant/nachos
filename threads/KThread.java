@@ -409,7 +409,22 @@ public class KThread {
 	Lib.debug(dbgThread, "Enter KThread.selfTest");
 	
 	new KThread(new PingTest(1)).setName("forked thread").fork();
-	new PingTest(0).run();
+    new PingTest(0).run();
+    /* Make sure a thread cannot join to itself. */
+		final KThread selfJoin = new KThread();
+		selfJoin.setTarget(new Runnable() {
+			public void run() {
+				String testStatus = "[FAIL]";
+				try {
+					selfJoin.join();
+				}
+				catch (Error e) {
+					testStatus = "[PASS]";
+				}
+				System.out.println(testStatus + ": Exception thrown when thread attempted to join self.");
+			}
+		});
+        selfJoin.fork(); selfJoin.join();
     }
 
     private static final char dbgThread = 't';
