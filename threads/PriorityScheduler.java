@@ -327,6 +327,7 @@ public class PriorityScheduler extends Scheduler {
 	public void acquire(PriorityQueue waitQueue) {
 		// implement me
 		waitingThis.add(waitQueue);
+		if(waitingIn!=null) waitingIn.queue.remove(this);
 		updateEffectivePriority();
 	}	
 	/** The priority queue waiting for this thread, when this thread acquired the access. */
