@@ -164,10 +164,10 @@ public class PriorityScheduler extends Scheduler {
 	 * without modifying the state of this queue.
 	 *
 	 * @return	the next thread that <tt>nextThread()</tt> would
-	 *		return.
+	 *		return.protected
 	 */
 	protected ThreadState pickNextThread() {
-	    // implement me
+		// implement me
 	    return queue.peek();
 	}
 	
@@ -180,7 +180,7 @@ public class PriorityScheduler extends Scheduler {
 	 * A treemap that contains all waiting threads in the queue, sorted with priority.
 	 */
 
-	java.util.PriorityQueue<ThreadState> queue = new java.util.PriorityQueue<ThreadState>();
+	public java.util.PriorityQueue<ThreadState> queue = new java.util.PriorityQueue<ThreadState>();
 
 	/**
 	 * <tt>true</tt> if this queue should transfer priority from waiting
@@ -208,7 +208,7 @@ public class PriorityScheduler extends Scheduler {
 	 */
 	public ThreadState(KThread thread) {
 	    this.thread = thread;
-	    
+		
 		setPriority(priorityDefault);
 		effectivePriority = priority;
 	}
@@ -218,8 +218,8 @@ public class PriorityScheduler extends Scheduler {
 		if(effectivePriority > other.effectivePriority) return -1;
 		else if(effectivePriority < other.effectivePriority) return 1;
 		else {
-			if(time > other.time) return -1;
-			else return 1;
+			if(time > other.time) return 1;
+			else return -1;
 		}
 	}
 	
@@ -261,8 +261,15 @@ public class PriorityScheduler extends Scheduler {
 	 */
 
 	private void updateEffectivePriority(){
+		// update for setPriority()
 		effectivePriority = java.lang.Math.max(effectivePriority, priority);
-		effectivePriority = java.lang.Math.max(effectivePriority, waiting.maxEffectivePriority());
+
+		// update for acquire()
+		if(waitingIn){
+			waitingIn.queue.remove(this);
+			effectivePriority = java.lang.Math.max(effectivePriority, waiting.maxEffectivePriority());
+			waitingIn.queue.add(this);
+		}
 	}
 
 	/**
@@ -294,7 +301,9 @@ public class PriorityScheduler extends Scheduler {
 	 */
 	public void waitForAccess(PriorityQueue waitQueue) {
 		// implement me
-		waitQueue.queue.add(this);	
+		waitingIn = waitQueue;
+		time = Machine.timer().getTime();
+		waitQueue.queue.add(this);
 	}
 
 	/**
@@ -309,17 +318,19 @@ public class PriorityScheduler extends Scheduler {
 	 */
 	public void acquire(PriorityQueue waitQueue) {
 		// implement me
-		waiting = waitQueue;
+		waitingThis = waitQueue;
 		updateEffectivePriority();
 	}	
 	/** The priority queue waiting for this thread, when this thread acquired the access. */
-	private PriorityQueue waiting = new PriorityQueue(false);
+	private PriorityQueue waitingThis = null;
+	/** The priority queue that this thread is waiting in. */
+	private PriorityQueue watingIn = null;
 	/** The thread with which this object is associated. */	   
 	protected KThread thread;
 	/** The priority and effective priority of the associated thread. */
 	protected int priority;
 	protected int effectivePriority;
 	/** The length of time the threads has been waiting */
-	protected long time;
+	public long time;
     }
 }
