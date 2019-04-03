@@ -153,9 +153,10 @@ public class PriorityScheduler extends Scheduler {
 	public KThread nextThread() {
 	    Lib.assertTrue(Machine.interrupt().disabled());
 		// implement me
+
 		ThreadState nextTS = queue.poll();
+		if(nextTS == null) return null;
 		nextTS.acquire(this);
-		
 	    return nextTS.getThread();
 	}
 
@@ -227,6 +228,7 @@ public class PriorityScheduler extends Scheduler {
 	public boolean equals(Object other){
 		if(other == null || !(other instanceof ThreadState)) return false;
 
+		ThreadState o = (ThreadState) other;
 		return this.thread.compareTo(o.thread) == 0;
 	}
 	/**
@@ -265,9 +267,15 @@ public class PriorityScheduler extends Scheduler {
 		effectivePriority = java.lang.Math.max(effectivePriority, priority);
 
 		// update for acquire()
-		if(waitingIn){
+		if(waitingIn!=null){
 			waitingIn.queue.remove(this);
-			effectivePriority = java.lang.Math.max(effectivePriority, waiting.maxEffectivePriority());
+			int tmp = effectivePriority;
+			for(PriorityQueue q: waitingThis){
+				if(q.transferPriority && q.maxEffectivePriority()>tmp){
+					tmp = q.maxEffectivePriority();
+				}
+			}
+			effectivePriority = tmp;
 			waitingIn.queue.add(this);
 		}
 	}
@@ -318,13 +326,13 @@ public class PriorityScheduler extends Scheduler {
 	 */
 	public void acquire(PriorityQueue waitQueue) {
 		// implement me
-		waitingThis = waitQueue;
+		waitingThis.add(waitQueue);
 		updateEffectivePriority();
 	}	
 	/** The priority queue waiting for this thread, when this thread acquired the access. */
-	private PriorityQueue waitingThis = null;
+	private HashSet<PriorityQueue> waitingThis = new HashSet<PriorityQueue>();
 	/** The priority queue that this thread is waiting in. */
-	private PriorityQueue watingIn = null;
+	private PriorityQueue waitingIn = null;
 	/** The thread with which this object is associated. */	   
 	protected KThread thread;
 	/** The priority and effective priority of the associated thread. */
@@ -332,5 +340,40 @@ public class PriorityScheduler extends Scheduler {
 	protected int effectivePriority;
 	/** The length of time the threads has been waiting */
 	public long time;
-    }
+	}
+	
+	
+	//copied selftest function
+	public static void selfTest() {
+		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
+		KThread kt_1 = new KThread(), kt_2 = new KThread(), kt_3 = new KThread(), kt_4 = new KThread();
+		
+		boolean status = Machine.interrupt().disable();
+		
+		tq1.waitForAccess(kt_1);
+		tq2.waitForAccess(kt_2);
+		tq3.waitForAccess(kt_3);
+		
+		tq1.acquire(kt_2);
+		tq2.acquire(kt_3);
+		tq3.acquire(kt_4);
+		
+		ThreadedKernel.scheduler.setPriority(kt_1, 6);
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==6);
+		
+		KThread kt_5 = new KThread();
+		
+		ThreadedKernel.scheduler.setPriority(kt_5, 7);
+		
+		tq1.waitForAccess(kt_5);
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
+		
+		tq1.nextThread();
+		
+		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
+		
+		Machine.interrupt().restore(status);
+	}
 }

@@ -154,4 +154,10 @@ public abstract class Scheduler {
     public boolean decreasePriority() {
 	return false;
     }
+
+    /**
+     * self test method
+     */
+    public static void selfTest(){
+    }
 }
