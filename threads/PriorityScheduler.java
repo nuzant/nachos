@@ -126,6 +126,32 @@ public class PriorityScheduler extends Scheduler {
     /**
      * A <tt>ThreadQueue</tt> that sorts threads by priority.
      */
+
+
+
+
+
+
+
+
+
+
+
+
+/*******************************************************************************************/
+
+
+
+
+
+
+
+
+
+
+
+
+
     protected class PriorityQueue extends ThreadQueue {
 	PriorityQueue(boolean transferPriority) {
 	    this.transferPriority = transferPriority;
@@ -176,6 +202,7 @@ public class PriorityScheduler extends Scheduler {
 	    Lib.assertTrue(Machine.interrupt().disabled());
 	    // implement me (if you want)
 	}
+	
 
 	/**
 	 * A treemap that contains all waiting threads in the queue, sorted with priority.
@@ -189,8 +216,46 @@ public class PriorityScheduler extends Scheduler {
 	 */
 	
 	public boolean transferPriority;
+	public KThread lockingThread = null;
     }
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+/*********************************************************************************************************/    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     /**
      * The scheduling state of a thread. This should include the thread's
      * priority, its effective priority, any objects it owns, and the queue
@@ -220,7 +285,8 @@ public class PriorityScheduler extends Scheduler {
 		else if(effectivePriority < other.effectivePriority) return 1;
 		else {
 			if(time > other.time) return 1;
-			else return -1;
+			else if (time < other.time) return -1;
+			else return 0;
 		}
 	}
 	
@@ -263,6 +329,50 @@ public class PriorityScheduler extends Scheduler {
 	 */
 
 	private void updateEffectivePriority(){
+		/*TangBoshi version
+		*/
+		
+		//Remove this thread from the queue considering the coming change of priority
+		if(waitingIn != null)	waitingIn.queue.remove(this);
+		
+		//To see if we need change
+		int myPriority = this.getPriority();
+		int myEf = this.getEffectivePriority();
+		this.effectivePriority = myPriority;
+		for (PriorityQueue priorityQ : waitingThis)
+		{
+			if (priorityQ.transferPriority)
+			{
+				ThreadState firstTS = priorityQ.queue.peek();
+				if (firstTS != null)
+				{	
+					int firstTSPriority = firstTS.getEffectivePriority();
+					if (firstTSPriority > myPriority && firstTSPriority > this.getEffectivePriority())
+					{
+						this.effectivePriority = firstTSPriority;
+					}
+				}
+			}
+		}
+		
+		if(waitingIn != null) {
+			waitingIn.queue.add(this);
+			
+			boolean needToPropagate = false;
+			if (myEf != this.getEffectivePriority())   needToPropagate = true;
+			
+			if (needToPropagate)	//undergoes value change
+			{
+				ThreadState lockingState = getThreadState(waitingIn.lockingThread);
+				if (lockingState != null)
+					lockingState.updateEffectivePriority();
+			}
+		}
+	}
+		
+		
+		
+		/*
 		// update for setPriority()
 		effectivePriority = java.lang.Math.max(effectivePriority, priority);
 
@@ -277,8 +387,8 @@ public class PriorityScheduler extends Scheduler {
 			}
 			effectivePriority = tmp;
 			waitingIn.queue.add(this);
-		}
-	}
+		}*/
+	
 
 	/**
 	 * Set the priority of the associated thread to the specified value.
@@ -295,6 +405,21 @@ public class PriorityScheduler extends Scheduler {
 	    updateEffectivePriority();
 	}
 
+	
+	
+	/*A PriorityQueue can only be released by its lockingThread*/
+	public void releaseQueue (PriorityQueue priorityQ)
+	{
+		/*The priorityQ is locked by the thread*/
+		if (waitingThis.remove(priorityQ))
+		{
+			priorityQ.lockingThread = null;
+			
+			updateEffectivePriority();
+		}
+	}
+	
+	
 	/**
 	 * Called when <tt>waitForAccess(thread)</tt> (where <tt>thread</tt> is
 	 * the associated thread) is invoked on the specified priority queue.
@@ -309,9 +434,13 @@ public class PriorityScheduler extends Scheduler {
 	 */
 	public void waitForAccess(PriorityQueue waitQueue) {
 		// implement me
+		this.releaseQueue(waitQueue);
+		
 		waitingIn = waitQueue;
 		time = Machine.timer().getTime();
 		waitQueue.queue.add(this);
+		
+		updateEffectivePriority();
 	}
 
 	/**
@@ -324,10 +453,18 @@ public class PriorityScheduler extends Scheduler {
 	 * @see	nachos.threads.ThreadQueue#acquire
 	 * @see	nachos.threads.ThreadQueue#nextThread
 	 */
+	 
+	 
 	public void acquire(PriorityQueue waitQueue) {
 		// implement me
+		if (waitQueue.lockingThread != null)
+		getThreadState(waitQueue.lockingThread).releaseQueue(waitQueue);
+		
+		waitQueue.lockingThread = this.thread;
 		waitingThis.add(waitQueue);
-		if(waitingIn!=null) waitingIn.queue.remove(this);
+		waitQueue.queue.remove(this);
+		waitingIn = null;
+		
 		updateEffectivePriority();
 	}	
 	/** The priority queue waiting for this thread, when this thread acquired the access. */
@@ -343,7 +480,17 @@ public class PriorityScheduler extends Scheduler {
 	public long time;
 	}
 	
-	
+
+
+
+
+
+
+
+
+
+
+/*****************************************************************************************************************/	
 	//copied selftest function
 	public static void selfTest() {
 		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
