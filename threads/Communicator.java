@@ -15,8 +15,8 @@ public class Communicator {
      * Allocate a new communicator.
      */
     public Communicator() {
-    this.speakerCond = new Condition2(this.conditionLock);
-    this.listenerCond = new Condition2(this.conditionLock);
+    this.speakerCond = new Condition2(this.lock);
+    this.listenerCond = new Condition2(this.lock);
     }
 
     /**
@@ -66,7 +66,7 @@ public class Communicator {
 
         return word;
     }
-    
+
     private int waitListener = 0;
     private Lock lock = new Lock();
     private Condition2 speakerCond;
