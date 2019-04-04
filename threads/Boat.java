@@ -1,76 +1,265 @@
 package nachos.threads;
 import nachos.ag.BoatGrader;
+import nachos.machine.*;
+import nachos.threads.*;
 
-public class Boat
-{
-    static BoatGrader bg;
-    
-    public static void selfTest()
-    {
-	BoatGrader b = new BoatGrader();
-	
-	System.out.println("\n ***Testing Boats with only 2 children***");
-	begin(0, 2, b);
+public class Boat {
+  static BoatGrader bg;
 
-//	System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
-//  	begin(1, 2, b);
+  static final int O = 234245; // Some random integer constant
+  static final int M = O + 1;
 
-//  	System.out.println("\n ***Testing Boats with 3 children, 3 adults***");
-//  	begin(3, 3, b);
+  static int boat = O;
+  static int passenger = 0;
+  static Lock boatLock = new Lock();
+  static Condition waitO = new Condition(boatLock);
+  static Condition waitM = new Condition(boatLock);
+  static Condition waitB = new Condition(boatLock); // Waiting on boat
+  static Communicator endTest = new Communicator();
+
+  static int Ochild = 0;
+  static int Oadult = 0;
+  static int Mchild = 0;
+  static int Madult = 0;
+  static int endNumber = 0;
+
+  public static void selfTest() {
+    BoatGrader b = new BoatGrader();
+
+    //System.out.println("\n ***Testing Boats with only 2 children***");
+    //begin(0, 2, b);
+
+    //	//System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
+      	begin(5, 2, b);
+
+    //  	//System.out.println("\n ***Testing Boats with 3 children, 3 adults***");
+    //  	begin(3, 3, b);
+  }
+
+  public static void begin( int adults, int children, BoatGrader b ) {
+    bg = b;
+    Ochild = 0; Oadult = 0; Mchild = 0; Madult = 0;
+    endNumber = children + adults;
+    boolean last = false;
+
+    Runnable child = new Runnable() {
+      public void run () {
+        int location = O;
+        ChildItinerary(location);
+      }
+    };
+
+    Runnable adult = new Runnable() {
+      public void run () {
+        int location = O;
+        AdultItinerary(location, last);
+      }
+    };
+/*    Runnable rhookO = new Runnable() {
+      public void run () {
+        hookOMethod();
+      }
+    };
+    Runnable rhookM = new Runnable() {
+      public void run () {
+        hookMMethod();
+      }
+    };
+    KThread hookO = new KThread(rhookO);
+    hookO.setName("myhookO");
+    hookO.fork();
+
+    KThread hookM = new KThread(rhookM);
+    hookM.setName("myhookM");
+    hookM.fork();
+*/
+    for (int i = 0; i < children; i++) {
+      KThread childThread = new KThread(child);
+      childThread.setName("Child Thread #" + (i+1));
+      childThread.fork();
+    }
+    for (int i = 0; i < adults; i++) {
+      KThread adultThread = new KThread(adult);
+      adultThread.setName("Adult Thread #" + (i+1));
+      adultThread.fork();
     }
 
-    public static void begin( int adults, int children, BoatGrader b )
-    {
-	// Store the externally generated autograder in a class
-	// variable to be accessible by children.
-	bg = b;
 
-	// Instantiate global variables here
-	
-	// Create threads here. See section 3.4 of the Nachos for Java
-	// Walkthrough linked from the projects page.
 
-	Runnable r = new Runnable() {
-	    public void run() {
-                SampleItinerary();
-            }
-        };
-        KThread t = new KThread(r);
-        t.setName("Sample Boat Thread");
-        t.fork();
-
+    while(true) {
+      int receiver = endTest.listen();
+      //System.out.println("testing end" + receiver);
+      if (receiver == adults + children) return; // To be edited
     }
+  }
 
-    static void AdultItinerary()
-    {
-	bg.initializeAdult(); //Required for autograder interface. Must be the first thing called.
-	//DO NOT PUT ANYTHING ABOVE THIS LINE. 
-
-	/* This is where you should put your solutions. Make calls
-	   to the BoatGrader to show that it is synchronized. For
-	   example:
-	       bg.AdultRowToMolokai();
-	   indicates that an adult has rowed the boat across to Molokai
-	*/
+/*  static void hookOMethod() {
+    //System.out.println("hookO forked");
+    boatLock.acquire();
+    while (true) {
+      waitO.wakeAll();
+      waitO.sleep();
     }
+    //boatLock.release();
+  }
 
-    static void ChildItinerary()
-    {
-	bg.initializeChild(); //Required for autograder interface. Must be the first thing called.
-	//DO NOT PUT ANYTHING ABOVE THIS LINE. 
+  static void hookMMethod(){
+    //System.out.println("hookM forked");
+    boatLock.acquire();
+    while (true) {
+      waitM.wakeAll();
+      waitM.sleep();
     }
+    //boatLock.release();
+  }*/
 
-    static void SampleItinerary()
-    {
-	// Please note that this isn't a valid solution (you can't fit
-	// all of them on the boat). Please also note that you may not
-	// have a single thread calculate a solution and then just play
-	// it back at the autograder -- you will be caught.
-	System.out.println("\n ***Everyone piles on the boat and goes to Molokai***");
-	bg.AdultRowToMolokai();
-	bg.ChildRideToMolokai();
-	bg.AdultRideToMolokai();
-	bg.ChildRideToMolokai();
+  static void AdultItinerary(int location, boolean last) {
+    bg.initializeAdult();
+    String name = KThread.currentThread().getName();
+    boatLock.acquire();
+    //System.out.println(name + " acquire");
+    Oadult++;
+    while (true) {
+      if (location == O) {
+        while (Ochild > 1 || boat == M || passenger > 0) {
+          //System.out.println(name + " sleep0");
+          waitO.sleep();
+        }
+        //System.out.println(name + " wake1");
+        bg.AdultRowToMolokai();
+
+        Oadult--; Madult++;
+        location = M;
+        boat = M;
+
+        endTest.speak(Mchild + Madult);
+        //System.out.println(name + " sleep2");
+        waitM.wakeAll();
+        waitM.sleep();
+      }
+
+      if (location == M) {
+        if (boat == M && Madult < endNumber && Mchild == 0) {
+          bg.AdultRowToOahu();
+          Madult--; Oadult++;
+          location = O; boat = O;
+          //System.out.println(name + " sleep2");
+          waitO.wakeAll();
+
+          waitO.sleep();
+        }
+        else {
+          //System.out.println(name + " sleep3");
+          waitM.sleep();
+        }
+      }
+
+
+      else {
+        if (false) {break;}
+      }
     }
-    
+    boatLock.release();
+  }
+
+  static void ChildItinerary(int location) {
+    bg.initializeChild();
+    String name = KThread.currentThread().getName();
+    boatLock.acquire();
+    //System.out.println(name + " acquire");
+    Ochild++;
+    while (true) {
+      if (location == M) { // Sail back to O
+        //System.out.println(name + " conditionM");
+        Lib.assertTrue(Mchild > 0);
+        while (boat != M) { waitM.sleep(); }
+        Mchild--;
+        bg.ChildRowToOahu();
+
+        location = O;
+        Ochild++;
+        boat = O;
+
+
+        //System.out.println(name + " wakeall");
+        waitO.wakeAll();
+        //System.out.println(name + " sleep");
+
+        waitO.sleep();
+        //System.out.println(name + " wake");
+      }
+
+      if (location == O) {
+        while (boat != O || passenger > 1 || (Oadult > 0 && Ochild == 1)) {
+          //System.out.println(name + " condition1");
+          if (boat == M) waitM.wakeAll();
+          //System.out.println(name + " sleep1");
+          waitO.sleep();
+          //System.out.println(name + " wake1");
+        }
+
+        waitO.wakeAll();
+        //Lib.assertTrue(Oadult == 0);
+
+        if (Oadult == 0 && Ochild == 1) {
+          Ochild--;
+          bg.ChildRowToMolokai();
+
+          location = M;
+          Mchild++;
+          boat = M;
+          passenger = 0;
+
+          endTest.speak(Mchild + Madult);
+          if (Mchild == 0 && Madult == 0) continue;
+          //System.out.println(name + " wakeall2");
+          waitO.wakeAll();
+          //System.out.println(name + " sleep2");
+          waitM.sleep();
+          //System.out.println(name + " wake2");
+        }
+
+        if (Ochild > 1 && location == O) { // send children to M
+          passenger++;
+          if (passenger == 1) {
+            waitB.sleep();
+            Ochild--;
+            bg.ChildRowToMolokai();
+
+            location = M;
+            Mchild++;
+            //System.out.println("Mchild" + Mchild);
+
+            Lib.assertTrue(boatLock.isHeldByCurrentThread());
+            waitB.wake();
+            //System.out.println(name + " sleep3");
+            waitM.sleep();
+          }
+
+          if (passenger == 2) {
+            waitB.wake();
+            waitB.sleep();
+
+            Ochild--;
+            //System.out.println(name);
+            bg.ChildRideToMolokai();
+
+            location = M;
+            Mchild++;
+            boat = M;
+            passenger = 0;
+            //System.out.println("Mchild" + Mchild);
+            endTest.speak(Mchild + Madult);
+            waitM.wakeAll();
+            waitM.sleep();
+          }
+        }
+      }
+
+      else {
+        if (false) {break;}
+      }
+    }
+    boatLock.release();
+  }
 }
