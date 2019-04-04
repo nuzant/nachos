@@ -73,7 +73,7 @@ public class Communicator {
     
     boolean intStatus = Machine.interrupt().disable();
     
-    this.conditionLock.acquire();
+    this.conditionLock2.acquire();
     
     while (waitSpeaker == 0 && sleepingSpeaker == null)
     {
@@ -93,7 +93,7 @@ public class Communicator {
         
         sleepingSpeaker.ready();
     }
-    this.conditionLock.release();
+    this.conditionLock2.release();
     Machine.interrupt().restore(intStatus);
 	return this.channel;
     }
@@ -102,6 +102,7 @@ public class Communicator {
     private KThread sleepingSpeaker = null;
     private KThread activeListener = null;
     private Lock conditionLock = new Lock();
+    private Lock conditionLock2 = new Lock();
     private Condition2 waitSpeakerQueue;
     private Condition2 waitListenerQueue;
     private int channel;

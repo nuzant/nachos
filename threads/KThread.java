@@ -406,25 +406,55 @@ public class KThread {
      * Tests whether this module is working.
      */
     public static void selfTest() {
-	Lib.debug(dbgThread, "Enter KThread.selfTest");
+	//Lib.debug(dbgThread, "Enter KThread.selfTest");
 	
-	new KThread(new PingTest(1)).setName("forked thread").fork();
-    new PingTest(0).run();
-    /* Make sure a thread cannot join to itself. */
-		final KThread selfJoin = new KThread();
-		selfJoin.setTarget(new Runnable() {
-			public void run() {
-				String testStatus = "[FAIL]";
+	//new KThread(new PingTest(1)).setName("forked thread").fork();
+    //new PingTest(0).run();
+    /* Testing method join() */
+        Lib.debug(dbgThread, "Testing join()...");
+        //normal join test
+        KThread joiner = new KThread(new PingTest(1));
+        joiner.setName("joiner");
+        joiner.setTarget(new Runnable(){
+            public void run(){
+                for (int i = 0; i < 10; i++){
+                    System.out.println(joiner.toString() + ": me running.");
+                }
+            }
+        });
+
+        KThread runner = new KThread();
+        runner.setName("runner");
+        runner.setTarget(new Runnable(){
+            public void run(){
+                for (int i = 0; i < 10 ; i++){
+                    System.out.println(runner.toString() + ": me running.");
+                }
+            }
+        });
+        runner.fork();
+        joiner.fork();
+        
+        joiner.join();
+
+        //testing self join
+
+        KThread selfjoiner = new KThread();
+        selfjoiner.setName("selfjoin");
+        selfjoiner.setTarget(new Runnable(){
+            public void run(){
+                String testStatus = "[FAIL]";
 				try {
-					selfJoin.join();
+					selfjoiner.join();
 				}
 				catch (Error e) {
 					testStatus = "[PASS]";
 				}
-				System.out.println(testStatus + ": Exception thrown when thread attempted to join self.");
-			}
-		});
-        selfJoin.fork(); selfJoin.join();
+                System.out.println("\n" + testStatus + ": Exception thrown when thread attempted to join self.\n");
+            }
+        });
+        selfjoiner.fork();
+        selfjoiner.join();
     }
 
     private static final char dbgThread = 't';

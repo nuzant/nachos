@@ -40,7 +40,8 @@ public class Alarm {
 	while (!sleepingThreads.isEmpty() && this.sleepingThreads.firstKey() <= currentTime)
 		this.sleepingThreads.pollFirstEntry().getValue().ready();	/*Do periodic house keeping */
 	
-	KThread.currentThread().yield();
+    KThread.currentThread().yield();
+    Machine.interrupt().restore(intStatus);
     }
 
     /**
@@ -73,4 +74,16 @@ public class Alarm {
     }
     
     private TreeMap<Long, KThread> sleepingThreads;
+    // self test method
+
+    public static void selfTest(){
+        KThread t = new KThread(new Runnable(){
+            public void run(){
+                System.out.println("I am awake");
+            }
+        });
+        
+        t.fork();
+        ThreadedKernel.alarm.waitUntil(100);
+    }
 }
