@@ -54,6 +54,7 @@ public class ThreadedKernel extends Kernel {
     //}
     //Alarm.selfTest();
     //Scheduler.selfTest();
+    Condition2.selfTest();
     }
     
     /**

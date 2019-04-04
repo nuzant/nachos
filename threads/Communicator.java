@@ -15,8 +15,8 @@ public class Communicator {
      * Allocate a new communicator.
      */
     public Communicator() {
-    this.waitSpeakerQueue = new Condition2(this.conditionLock);
-    this.waitListenerQueue = new Condition2(this.conditionLock);
+    this.speakerCond = new Condition2(this.conditionLock);
+    this.listenerCond = new Condition2(this.conditionLock);
     }
 
     /**
@@ -30,35 +30,17 @@ public class Communicator {
      * @param	word	the integer to transfer.
      */
      
-     /*(Edited by Tang) The speaker will first check if somebody is waiting for him. If so, the speaker will wake 
-       a listener, leave the message on Communicator, and go to sleep. When the listener receives 
-       the message, he will wake up the speaker and returns from Communicator. Otherwise, the speaker
-       will release the lock and go to sleep. */
     public void speak(int word) {
-    
-    boolean intStatus = Machine.interrupt().disable();
-    
-    this.conditionLock.acquire();
-    
-    while (this.activeListener == null && this.waitListener == 0)
-    {
-        this.waitSpeaker += 1;
-        this.waitSpeakerQueue.sleep();
-        this.waitSpeaker -= 1;
-    }
-    
-    this.channel = word;
-    if (this.activeListener == null)
-        this.waitListenerQueue.wake();
-    else
-        this.activeListener.ready();
-            
-    this.sleepingSpeaker = KThread.currentThread();
-    KThread.sleep();
-    this.sleepingSpeaker = null;
-    
-    this.conditionLock.release();
-    Machine.interrupt().restore(intStatus);
+        lock.acquire();
+
+        while(waitListener == 0 || fullcache){
+            speakerCond.sleep();
+        }
+        cache = word; 
+        fullcache = true;
+
+        listenerCond.wake();
+        lock.release();
     }
 
     /**
@@ -70,40 +52,25 @@ public class Communicator {
      
      /*(Edited by Tang) */
     public int listen() {
-    
-    boolean intStatus = Machine.interrupt().disable();
-    
-    this.conditionLock2.acquire();
-    
-    while (waitSpeaker == 0 && sleepingSpeaker == null)
-    {
-        waitListener += 1;
-        waitListenerQueue.sleep();
-        waitListener -= 1;
+        lock.acquire();
+        waitListener++;
+        speakerCond.wake();
+        listenerCond.sleep();
+
+        int word = cache;
+        fullcache = false;
+        waitListener--;
+
+        speakerCond.wake();
+        lock.release();
+
+        return word;
     }
     
-    if (sleepingSpeaker != null)
-        sleepingSpeaker.ready();
-    else
-    {   
-        activeListener = KThread.currentThread();
-        waitSpeakerQueue.wake();
-        KThread.sleep();
-        activeListener = null;
-        
-        sleepingSpeaker.ready();
-    }
-    this.conditionLock2.release();
-    Machine.interrupt().restore(intStatus);
-	return this.channel;
-    }
-    private int waitSpeaker = 0;
     private int waitListener = 0;
-    private KThread sleepingSpeaker = null;
-    private KThread activeListener = null;
-    private Lock conditionLock = new Lock();
-    private Lock conditionLock2 = new Lock();
-    private Condition2 waitSpeakerQueue;
-    private Condition2 waitListenerQueue;
-    private int channel;
+    private Lock lock = new Lock();
+    private Condition2 speakerCond;
+    private Condition2 listenerCond;
+    private int cache;
+    private boolean fullcache;
 }
