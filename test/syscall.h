@@ -159,6 +159,11 @@ int open(char *name);
  * happen if fileDescriptor is invalid, if part of the buffer is read-only or
  * invalid, or if a network stream has been terminated by the remote host and
  * no more data is available.
+ *
+ * The read() system call should return the number of bytes read, 0 if no bytes 
+ * are available, or -1 if there is an error or if the connection has been closed. 
+ * If the socket has been closed by the remote host, read() should return any previously-received 
+ * data, and return -1 after all received data has been read by the user.
  */
 int read(int fileDescriptor, void *buffer, int count);
 

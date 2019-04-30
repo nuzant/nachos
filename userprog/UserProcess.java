@@ -501,25 +501,26 @@ public class UserProcess {
      * Only called by handleOpen() and handleCreate()
      */
     private int openFile(int fileNamePointer, boolean create) {
+		//System.out.print("Successive entrance\n");
     	if (!validVirtualAddress(fileNamePointer))
-    		return terminate();
+    		{/*System.out.print("506\n");*/return terminate();}
     		
     	int descriptor = getDescriptor();
-    	if (descriptor == -1)	return -1;
+    	if (descriptor == -1)	{/*System.out.print("509\n");*/return -1;}
     	
     	String fileName = readVirtualMemoryString(fileNamePointer, maxLengthForString);
     	
     	OpenFile file = ((UserKernel) Kernel.kernel).fileSystem.open(fileName, create);
     	
-    	if(file == null)	return -1;
+    	if(file == null)	{/*System.out.print("515\n");*/return -1;}
     	else
     	{
     		int canRef = fileRefRecord.reference(fileName);
-    		if (canRef == -1)	return -1;
+    		if (canRef == -1)	{/*System.out.print("519\n");*/return -1;}
     	}
     	
     	fileTable[descriptor] = file;
-    	
+    	//System.out.print("Successive out\n");
     	return descriptor;
     	
     }
@@ -787,6 +788,7 @@ public class UserProcess {
     		{
     			if (ref.delete)		status = ref.delIfNecessary(ref, fileName)? 1 : -1;
     			globalFileReferences.remove(fileName);
+    			//if (globalFileReferences.get(fileName) == null) System.out.print("sdfshdiufhasifhbius\n");
     		}
     		finishUpdate();
     		return status;
@@ -808,7 +810,12 @@ public class UserProcess {
     	{	
     		fileRefRecord ref = updateReference(fileName);
     		boolean status = false;	//true if delete it
-    		if (ref.numRef <= 0)	status = ((UserKernel) Kernel.kernel).fileSystem.remove(fileName);
+    		if (ref.numRef <= 0)	
+    		{
+    			status = ((UserKernel) Kernel.kernel).fileSystem.remove(fileName);
+    			globalFileReferences.remove(fileName);
+    		}
+    		//if(status) System.out.print("816\n");
     		finishUpdate();
     		return status;
     	}

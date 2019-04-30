@@ -1,48 +1,5 @@
                       Nachos for Java README
 
-Welcome to Nachos for Java. We believe that working in Java rather than
-C++ will greatly simplify the development process by preventing bugs
-arising from memory management errors, and improving debugging support.
-
-Getting Nachos:
-
-Download nachos-java.tar.gz from the Projects section of the class
-homepage at:
-
-	http://www-inst.EECS.Berkeley.EDU/~cs162/
-
-Unpack it with these commands:
-
-	gunzip -c nachos-java.tar.gz | tar xf -
-
-Additional software:
-
-Nachos requires the Java Devlopment Kit, version 1.5 or later. This is
-installed on all instructional machines in:
-	/usr/sww/lang/jdk-1.5.0_05
-To use this version of the JDK, be sure that
-	/usr/sww/lang/jdk-1.5.0_05/bin
-is on your PATH. (This should be the case for all class accounts
-already.)
-
-If you are working at home, you will need to download the JDK. 
-It is available from:
-	http://java.sun.com/j2se/1.5/
-Please DO NOT DOWNLOAD the JDK into your class account! Use the
-preinstalled version instead.
-
-The build process for Nachos relies on GNU make. If you are running on
-one of the instructional machines, be sure you run 'gmake', as 'make'
-does not support all the features used. If you are running Linux, the
-two are equivalent. If you are running Windows, you will need to 
-download and install a port. The most popular is the Cygnus toolkit, 
-available at:
-
-	http://sources.redhat.com/cygwin/mirrors.html
-
-The Cygnus package includes ports of most common GNU utilities to
-Windows. 
-
 For project 2, you will need a MIPS cross compiler, which is a
 specially compiled GCC which will run on one architecture (e.g.
 Sparc) and produce files for the MIPS processor. These compilers
