@@ -17,7 +17,7 @@ public class UserKernel extends ThreadedKernel {
 	super();
 	int numPhysicalPages = Machine.processor().getNumPhysPages();
 	this.freePhysicalPages = new LinkedList<Integer>();
-	for (int i = 0; i < numPhysicalPages; i++) freePhysicalPages.add(i);
+	for (int i = 0; i < numPhysicalPages; i++) freePhysicalPages.add(new Integer(i));
 	this.numRemainingPages = Machine.processor().getNumPhysPages();
     }
 
@@ -105,7 +105,10 @@ public class UserKernel extends ThreadedKernel {
 
 	KThread.currentThread().finish();
     }
-	
+	/**
+	 * Allocate numPages of free physical pages as linkedlist
+	 * return the linkedlist containing the ppns.Null if not enough space
+	 */
 	public static LinkedList<Integer> getFreePages(int numPages)
 	{
 		memoryLock.acquire();
@@ -113,9 +116,12 @@ public class UserKernel extends ThreadedKernel {
 		{
 			memoryLock.release();	return null;
 		}
+		
 		LinkedList <Integer> freePages = new LinkedList <Integer> ();
 		for (int i = 0; i < numPages; i++)	freePages.add(freePhysicalPages.pollFirst());
+		
 		numRemainingPages -= numPages;
+		
 		memoryLock.release();
 		
 		return freePages;

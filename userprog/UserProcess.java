@@ -152,10 +152,11 @@ public class UserProcess {
 	
 	//First read
 	int addressOffset = Machine.processor().offsetFromAddress(vaddr);
-	int numFirstRead = Math.min(remainingAmount, pageSize - addressOffset);
-	int ppn = translate(Machine.processor().pageFromAddress(vaddr), readMode);
-	if (ppn == -1)	{virtualMemoryLock.release(); return successAmount;}
-	int paddr = Machine.processor().makeAddress(ppn, addressOffset);
+	int numFirstRead  = Math.min(remainingAmount, pageSize - addressOffset);
+	int ppn           = translate(Machine.processor().pageFromAddress(vaddr), readMode);
+	if (ppn == -1)		{virtualMemoryLock.release(); return successAmount;}
+	
+	int paddr         = Machine.processor().makeAddress(ppn, addressOffset);
 	
 	System.arraycopy(mainMemory, paddr, data, offset, numFirstRead);
 	
@@ -348,7 +349,7 @@ public class UserProcess {
 	// and finally reserve 1 page for arguments
 	numPages++;
 	
-	//Initialize the page table this process uses
+	//Initialize the page table this process uses and allocate physical memory
 	this.pageTable = new TranslationEntry[numPages];
 	LinkedList<Integer> freePages = UserKernel.getFreePages(numPages);
 	if (freePages == null)	return false;
@@ -403,25 +404,26 @@ public class UserProcess {
 		
 		int sectionLength = section.getLength();
 		int firstVPN = section.getFirstVPN();
-	    for (int i=0; i < sectionLength; i++) {
-		int vpn = firstVPN + i;
-		int ppn = pageTable[nextPageTableEntry].ppn;
+	    for (int i=0; i < sectionLength; i++) 
+	    {
+			int vpn = firstVPN + i;
+			int ppn = pageTable[nextPageTableEntry].ppn;
 		
-		//load the page into physical memory
-		section.loadPage(i, ppn);
+			//load the page into physical memory
+			section.loadPage(i, ppn);
 		
-		//modify the pageTable
-		boolean readOnly = section.isReadOnly();
-		pageTable[nextPageTableEntry] = new TranslationEntry(vpn, ppn, true, readOnly, false, false);
-		nextPageTableEntry ++;
+			//modify the pageTable
+			boolean readOnly = section.isReadOnly();
+			pageTable[nextPageTableEntry] = new TranslationEntry(vpn, ppn, true, readOnly, false, false);
+			nextPageTableEntry ++;
 	    }
 	}
-	
 	return true;
     }
     
     /**
    	 * Translate vpn to its corresponding ppn, using the page table
+   	 * return the ppn corresponding to the vpn, -1 if an error occurs
    	 */
     private int translate(int vpn, int mode)
     {
@@ -577,22 +579,25 @@ public class UserProcess {
     }
     
     /**
-     * handle close()
+     * handle close().
+     * return 0 on success, -1 otherwise
      */
     private int handleClose(int fileDescriptor)
     {
     	if (!validFileDescriptor(fileDescriptor))	return -1;
     	
     	OpenFile file = fileTable[fileDescriptor];
-    	int status = fileRefRecord.unreference(file.getName());
+    	String fileName = file.getName();
+    	
     	fileTable[fileDescriptor].close();
     	fileTable[fileDescriptor] = null;
+    	int status = fileRefRecord.unreference(fileName);
     	
   		return status == -1? -1 : 0;
     }
     
     /**
-     * handle unlink()
+     * handle unlink().return 0 on success, or -1 otherwise
      */
     private int handleUnlink(int namePointer)
     {
@@ -601,13 +606,14 @@ public class UserProcess {
     	
     	for (int i = 0; i < maxNumFiles; i++)
     	{
-    		if (fileTable[i].getName() == name)
+    		if (fileTable[i] != null && fileTable[i].getName() == name)
     		{
+    			fileTable[i].close();
+    			fileTable[i] = null;
+    			
     			fileRefRecord.markAsDelete(name);
     			int status = fileRefRecord.unreference(name);	//This will call remove() if necessary
     			
-    			fileTable[i].close();
-    			fileTable[i] = null;
 				if (status == -1)	return -1;
 				else	return 0;
     		}
@@ -634,20 +640,21 @@ public class UserProcess {
     	return 0 <= pageNum && pageNum < numPages;
     }
     
-    private int terminate(){return 0;}		//need caution!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!NOT FINISHED.
+    private int terminate(){return -1;}		//need caution!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!NOT FINISHED.
  //   {
   //  	handleExit(null);
   //  	return -1;
  //   }
     
     /**
-     * get the next available position of pageTable. -1 if none
+     * get the next available position of pageTable. 
+     * return the wanted descriptor on success or -1 if none
      */
 	private int getDescriptor()
 	{
 		for (int i = 0; i < maxNumFiles; i++)
 		{
-			if (fileTable[i] != null)	return i;
+			if (fileTable[i] == null)	return i;
 		}
 		
 		return -1;
@@ -769,6 +776,7 @@ public class UserProcess {
     	
     	/**
     	 * called when the file gets referenced by a process
+    	 * return 1 on success. -1 if it cannot reference it.
     	 */
     	public static int reference(String fileName)
     	{
@@ -781,7 +789,8 @@ public class UserProcess {
     	
     	/**
     	 * called when the file gets unreferenced by a process
-    	 * return -1 when an error occurs, 1 otherwise
+    	 * return -1 when an error occurs, 1 otherwise.
+    	 * Delete files if necessary
     	 */
     	public static int unreference(String fileName)
     	{
@@ -797,11 +806,10 @@ public class UserProcess {
     		return status;
     	}
     	
-    	//This version is called by unreference() only.
+    	//Without lock, this version is called by unreference() only.
     	private static boolean delIfNecessary(fileRefRecord ref, String fileName)
     	{
-    		boolean status = false;	//true if delete it
-    		if (ref.numRef <= 0)	status = UserKernel.fileSystem.remove(fileName);
+    		boolean status = UserKernel.fileSystem.remove(fileName);
     		return status;
     	}
     	
@@ -831,6 +839,7 @@ public class UserProcess {
 		
 		/**
 		 * Called when beginning to update the reference table.
+		 * acquire() the fileRefLock.
 		 * return the corresponding fileRefRecord
 		 */
     	private static fileRefRecord updateReference(String fileName)
@@ -884,9 +893,9 @@ public class UserProcess {
     public static int maxPID = 0;
     
     private static Lock PIDLock = new Lock();
-    private Lock virtualMemoryLock = new Lock();
+    private static Lock virtualMemoryLock = new Lock();
     
     //Used to indicate the translation mode
-    private static int writeMode = 1;
-    private static int readMode = -1;
+    private static final int writeMode = 1;
+    private static final int readMode = -1;
 }

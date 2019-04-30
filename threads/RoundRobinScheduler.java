@@ -43,6 +43,14 @@ public class RoundRobinScheduler extends Scheduler {
 	}
 
 	/**
+	 * set name
+	 */
+
+	public void setName(String str){
+		name = str;
+	}
+
+	/**
 	 * Remove a thread from the beginning of the queue.
 	 *
 	 * @return	the first thread on the queue, or <tt>null</tt> if the
@@ -80,5 +88,6 @@ public class RoundRobinScheduler extends Scheduler {
 	}
 
 	private LinkedList<KThread> waitQueue = new LinkedList<KThread>();
-    }
+	}
+	public String name = "defaultName";
 }

@@ -68,7 +68,6 @@ public class Boat {
     KThread hookO = new KThread(rhookO);
     hookO.setName("myhookO");
     hookO.fork();
-
     KThread hookM = new KThread(rhookM);
     hookM.setName("myhookM");
     hookM.fork();
@@ -102,7 +101,6 @@ public class Boat {
     }
     //boatLock.release();
   }
-
   static void hookMMethod(){
     //System.out.println("hookM forked");
     boatLock.acquire();
