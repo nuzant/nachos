@@ -3,6 +3,8 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
+import java.util.LinkedList;
+import java.lang.Integer;
 
 /**
  * A kernel that can support multiple user processes.
@@ -13,6 +15,10 @@ public class UserKernel extends ThreadedKernel {
      */
     public UserKernel() {
 	super();
+	int numPhysicalPages = Machine.processor().getNumPhysPages();
+	this.freePhysicalPages = new LinkedList<Integer>();
+	for (int i = 0; i < numPhysicalPages; i++) freePhysicalPages.add(i);
+	this.numRemainingPages = Machine.processor().getNumPhysPages();
     }
 
     /**
@@ -94,22 +100,40 @@ public class UserKernel extends ThreadedKernel {
 
 	UserProcess process = UserProcess.newUserProcess();
 	
-	String shellProgram = Machine.getShellProgramName();	
+	String shellProgram = Machine.getShellProgramName();
 	Lib.assertTrue(process.execute(shellProgram, new String[] { }));
 
 	KThread.currentThread().finish();
     }
-
+	
+	public static LinkedList<Integer> getFreePages(int numPages)
+	{
+		memoryLock.acquire();
+		if (numRemainingPages < numPages)	
+		{
+			memoryLock.release();	return null;
+		}
+		LinkedList <Integer> freePages = new LinkedList <Integer> ();
+		for (int i = 0; i < numPages; i++)	freePages.add(freePhysicalPages.pollFirst());
+		numRemainingPages -= numPages;
+		memoryLock.release();
+		
+		return freePages;
+	}
+	
     /**
      * Terminate this kernel. Never returns.
      */
     public void terminate() {
 	super.terminate();
     }
-
+ 
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
 
+	private static LinkedList<Integer> freePhysicalPages;
+	private static int numRemainingPages;
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
+    private static Lock memoryLock = new Lock();
 }
