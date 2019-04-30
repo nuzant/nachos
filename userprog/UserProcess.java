@@ -28,9 +28,9 @@ public class UserProcess {
     public UserProcess() {
     PIDLock.acquire();
 	
-	fileTable[0] = UserKernel.console.openForReading();
+	fileTable[0] = ((UserKernel) Kernel.kernel).console.openForReading();
 	fileRefRecord.reference(fileTable[0].getName());
-	fileTable[1] = UserKernel.console.openForWriting();
+	fileTable[1] = ((UserKernel) Kernel.kernel).console.openForWriting();
 	fileRefRecord.reference(fileTable[1].getName());
 	
 	this.PID = maxPID++;
@@ -312,7 +312,7 @@ public class UserProcess {
 	    Lib.debug(dbgProcess, "\tcoff load failed");
 	    return false;
 	}
-
+	
 	// make sure the sections are contiguous and start at page 0
 	numPages = 0;
 	for (int s=0; s<coff.getNumSections(); s++) {
@@ -348,14 +348,6 @@ public class UserProcess {
 
 	// and finally reserve 1 page for arguments
 	numPages++;
-	
-	//Initialize the page table this process uses and allocate physical memory
-	this.pageTable = new TranslationEntry[numPages];
-	LinkedList<Integer> freePages = UserKernel.getFreePages(numPages);
-	if (freePages == null)	return false;
-	
-	for (int i = 0; i < numPages; i++)	
-		{pageTable[i] = new TranslationEntry(-1, freePages.pollFirst().intValue(), false, false, false, false);}
 	
 	if (!loadSections())
 	    return false;
@@ -394,7 +386,14 @@ public class UserProcess {
 	    Lib.debug(dbgProcess, "\tinsufficient physical memory");
 	    return false;
 	}
-
+	
+	//set up the pageTable
+	this.pageTable = ((UserKernel) Kernel.kernel).getFreePages(numPages);
+	if (pageTable == null)	return false;
+	
+	for (int i = 0; i < pageTable.length; i++)
+		pageTable[i].vpn = i;
+	
 	// load sections
 	for (int s=0; s<coff.getNumSections(); s++) {
 	    CoffSection section = coff.getSection(s);
@@ -407,15 +406,13 @@ public class UserProcess {
 	    for (int i=0; i < sectionLength; i++) 
 	    {
 			int vpn = firstVPN + i;
-			int ppn = pageTable[nextPageTableEntry].ppn;
 		
 			//load the page into physical memory
-			section.loadPage(i, ppn);
+			section.loadPage(i, translate(vpn, defaultMode));
 		
 			//modify the pageTable
-			boolean readOnly = section.isReadOnly();
-			pageTable[nextPageTableEntry] = new TranslationEntry(vpn, ppn, true, readOnly, false, false);
-			nextPageTableEntry ++;
+			boolean isReadOnly = section.isReadOnly();
+			pageTable[vpn].readOnly = isReadOnly;
 	    }
 	}
 	return true;
@@ -427,31 +424,20 @@ public class UserProcess {
    	 */
     private int translate(int vpn, int mode)
     {
-    	if (vpn < 0)	return -1;
+    	if (vpn < 0 || vpn >= numPages)	return -1;
     	
-    	for(TranslationEntry te : pageTable)
-    	{
-    		if (te.vpn == vpn)
+    	int ppn = pageTable[vpn].ppn;
+    	if (mode == writeMode)
     		{
-    			if (!te.valid)	return -1;
-    			if (mode == writeMode)
-    			{
-    				if (te.readOnly)	return -1;
-    				
-    				te.used = true;
-    				te.dirty = true;
-    				
-    				return te.ppn;
-    			}
-    			else
-    			{
-    				te.used = true;
-    				
-    				return te.ppn;
-    			}
+    			if (pageTable[vpn].readOnly)	return -1;
+    			
+    			pageTable[vpn].dirty = true;
+    			pageTable[vpn].used = true;
+    			return ppn;
     		}
-    	}
-    	return -1;
+    	else if (mode == readMode)	{pageTable[vpn].used = true;	return ppn;}
+    	
+    	return ppn;
     }
 	
     /**
@@ -523,7 +509,7 @@ public class UserProcess {
     	
     	String fileName = readVirtualMemoryString(fileNamePointer, maxLengthForString);
     	
-    	OpenFile file = UserKernel.fileSystem.open(fileName, create);
+    	OpenFile file = ((UserKernel) Kernel.kernel).fileSystem.open(fileName, create);
     	
     	if(file == null)	return -1;
     	else
@@ -809,7 +795,7 @@ public class UserProcess {
     	//Without lock, this version is called by unreference() only.
     	private static boolean delIfNecessary(fileRefRecord ref, String fileName)
     	{
-    		boolean status = UserKernel.fileSystem.remove(fileName);
+    		boolean status = ((UserKernel) Kernel.kernel).fileSystem.remove(fileName);
     		return status;
     	}
     	
@@ -822,7 +808,7 @@ public class UserProcess {
     	{	
     		fileRefRecord ref = updateReference(fileName);
     		boolean status = false;	//true if delete it
-    		if (ref.numRef <= 0)	status = UserKernel.fileSystem.remove(fileName);
+    		if (ref.numRef <= 0)	status = ((UserKernel) Kernel.kernel).fileSystem.remove(fileName);
     		finishUpdate();
     		return status;
     	}
@@ -886,9 +872,6 @@ public class UserProcess {
     private static final int maxLengthForString = 256;
     private static final int maxNumFiles = 16;
     
-    //Used when initializing pagetable
-    private int nextPageTableEntry = 0;
-    
     private final int PID;
     public static int maxPID = 0;
     
@@ -898,4 +881,5 @@ public class UserProcess {
     //Used to indicate the translation mode
     private static final int writeMode = 1;
     private static final int readMode = -1;
+    private static final int defaultMode = 0;
 }

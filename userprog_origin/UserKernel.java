@@ -3,8 +3,6 @@ package nachos.userprog;
 import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
-import java.util.LinkedList;
-import java.lang.Integer;
 
 /**
  * A kernel that can support multiple user processes.
@@ -29,12 +27,6 @@ public class UserKernel extends ThreadedKernel {
 	Machine.processor().setExceptionHandler(new Runnable() {
 		public void run() { exceptionHandler(); }
 	    });
-	
-	for (int pageIndex = 0; pageIndex < Machine.processor().getNumPhysPages(); pageIndex++)
-		freePhysicalPages.add(new TranslationEntry(0, pageIndex, false, false, false, false));
-	numRemainingPages = Machine.processor().getNumPhysPages();
-		
-	memoryLock = new Lock();
     }
 
     /**
@@ -102,53 +94,22 @@ public class UserKernel extends ThreadedKernel {
 
 	UserProcess process = UserProcess.newUserProcess();
 	
-	String shellProgram = Machine.getShellProgramName();
+	String shellProgram = Machine.getShellProgramName();	
 	Lib.assertTrue(process.execute(shellProgram, new String[] { }));
 
 	KThread.currentThread().finish();
     }
-	/**
-	 * Allocate numPages of free physical pages as table
-	 * return the table containing the ppns.Null if not enough space
-	 */
-	public TranslationEntry[] getFreePages(int numPages)
-	{
-		TranslationEntry[] returnPages = null;
-		
-		memoryLock.acquire();
-		if (numRemainingPages < numPages)	
-		{
-			memoryLock.release();	return null;
-		}
-		
-		returnPages = new TranslationEntry[numPages];
-		
-		for (int i = 0; i < numPages; i++)
-		{
-			returnPages[i] = freePhysicalPages.remove();
-			returnPages[i].valid = true;
-		}
-		
-		numRemainingPages -= numPages;
-		
-		memoryLock.release();
-		
-		return returnPages;
-	}
-	
+
     /**
      * Terminate this kernel. Never returns.
      */
     public void terminate() {
 	super.terminate();
     }
- 
+
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
 
-	private LinkedList<TranslationEntry> freePhysicalPages = new LinkedList<TranslationEntry>();
-	private int numRemainingPages;
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
-    private Lock memoryLock;
 }
