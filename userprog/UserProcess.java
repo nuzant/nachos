@@ -4,6 +4,7 @@ import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
 
+import java.util.Set;
 import java.util.HashMap;
 import java.io.EOFException;
 import java.util.LinkedList;
@@ -26,7 +27,10 @@ public class UserProcess {
      * Allocate a new process.
      */
     public UserProcess() {
-    PIDLock.acquire();
+	PIDLock.acquire();
+	haltingLock.acquire();
+	numProcesses ++;
+	haltingLock.release();
 	
 	fileTable[0] = ((UserKernel) Kernel.kernel).console.openForReading();
 	fileRefRecord.reference(fileTable[0].getName());
@@ -35,6 +39,9 @@ public class UserProcess {
 	
 	this.PID = maxPID++;
 	PIDLock.release();
+
+	/** initialize cv */
+	joinCV = new Condition(joinLock);
     }
     
     /**
@@ -444,6 +451,7 @@ public class UserProcess {
      * Release any resources allocated by <tt>loadSections()</tt>.
      */
     protected void unloadSections() {
+		((UserKernel) Kernel.kernel).freePages(pageTable);
     }    
 
     /**
@@ -608,7 +616,146 @@ public class UserProcess {
     	fileRefRecord.markAsDelete(name);
     	if (fileRefRecord.deleteIfNecessary(name))	return 0;
     	else	return -1;
-    }
+	}
+	/**
+	 * handle exit()
+	 * @param status integer exit status, return null if exception
+	 * @return never return
+	 */
+	private int handleExit(int status){
+		// discard all files
+		for(int i = 0; i < fileTable.length; i++){
+			if(validFileDescriptor(i)){
+				handleClose(i);
+			}
+		}
+
+		// free memories
+		unloadSections();
+
+		// update information when exiting for parent
+		returnVal = status;
+		ifExited = true;
+
+		// if this process owns any child, make them discard the parent
+		for(UserProcess c : children){
+			if(!c.ifExited){
+				c.discardParent();
+			}
+		}
+		// clear the children of this process
+		children = null;
+		
+		// wake up all joiners
+		joinLock.acquire();
+		joinCV.wakeAll();
+		joinLock.release();
+
+		// if last process, halt the machine
+		haltingLock.acquire();
+		if(numProcesses == 1){
+			Kernel.kernel.terminate();
+		}
+		haltingLock.release();
+
+		KThread.finish();
+		return 0;
+	}
+
+	/**
+	 * set parent to null
+	 */
+	private void discardParent(){
+		parent = null;
+	}
+
+	/**
+	 * handle exec()
+	 * @param fileName A pointer pointing to the location of file name (null terminated string)
+	 * @param argc number of arguments
+	 * @param argv array of arguments
+	 * @return PID of child process
+	 */
+	private int handleExec(int fileName, int argc, int argv){
+		//verify if filename argv valid
+		if(!validVirtualAddress(fileName) || !validVirtualAddress(argv)){
+			return terminate();
+		}
+
+		//get filename
+		String fileNameString = readVirtualMemoryString(fileName, 256);
+		//if it is a legal filename
+		if(fileNameString == null || !fileNameString.endsWith(".coff"))
+			return -1;
+		
+		//arguments
+		String[] arguments = new String[argc];
+		byte[] argvPtrs = new byte[argc * 4];
+		int length_read = readVirtualMemory(argv, argvPtrs);
+		if(length_read != argc * 4)
+			// read length error
+			return -1;
+
+		//read arguments
+		for(int i = 0; i < argc; i++){
+			int pointer = Lib.bytesToInt(argvPtrs, i * 4);
+
+			if(!validVirtualAddress(pointer)) return -1;
+			arguments[i] = readVirtualMemoryString(pointer, 256);
+		}
+
+		//child
+		UserProcess newchild = newUserProcess();
+		children.add(newchild);
+		newchild.parent = this;
+		newchild.execute(fileNameString, arguments);
+
+		return newchild.PID;
+	}
+	
+	/**
+	 * handle join()
+	 * @param pid pid of process to 
+	 * @param status pointer to status
+	 * @return if join non child process, exception, return -1
+	 *         0 if child exited with unhandled exception
+	 * 		   1 if child exited cleanly
+	 */
+	private int handleJoin(int pid, int status){
+		//check if status pointer valid
+		if(!validVirtualAddress(status)){
+			return -1;
+		}
+
+		UserProcess joinChild = findChild(pid);
+
+		//joining nonchild
+		if(joinChild == null){
+			return -1;
+		} 
+
+		joinLock.acquire();
+		while(!ifExited)
+			joinCV.sleep();
+		joinLock.release();
+
+		if(joinChild.returnVal == null){
+			return 0;
+		} 
+
+		writeVirtualMemory(status, Lib.bytesFromInt(joinChild.returnVal));
+
+		return 1;
+	}
+
+	private UserProcess findChild(int pid){
+		for(UserProcess c: children){
+			if(c.PID == pid){
+				return c;
+			}
+		}
+		return null;
+	}
     
     /**
      * check if one filedescriptor is valid
@@ -627,11 +774,10 @@ public class UserProcess {
     	return 0 <= pageNum && pageNum < numPages;
     }
     
-    private int terminate(){return -1;}		//need caution!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!NOT FINISHED.
- //   {
-  //  	handleExit(null);
-  //  	return -1;
- //   }
+    private int terminate(){
+    	handleExit(0);
+    	return -1;
+    }
     
     /**
      * get the next available position of pageTable. 
@@ -700,7 +846,13 @@ public class UserProcess {
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
 	switch (syscall) {
 	case syscallHalt:
-	    return handleHalt();
+		return handleHalt();
+	case syscallExit:
+		return handleExit(a0);
+	case syscallExec:
+		return handleExec(a0,a1,a2);
+	case syscallJoin:
+		return handleJoin(a0,a1);
 	case syscallCreate:
 		return handleCreate(a0);
 	case syscallOpen:
@@ -751,7 +903,7 @@ public class UserProcess {
 		      Processor.exceptionNames[cause]);
 	    Lib.assertNotReached("Unexpected exception");
 	}
-    }
+	}
     /**
      * Record the number of references to files.
      * Take care of removing or releasing the files
@@ -855,7 +1007,20 @@ public class UserProcess {
     	
     	private static HashMap<String, fileRefRecord> globalFileReferences = new HashMap<String, fileRefRecord>();
     	private static Lock fileRefLock = new Lock();
-    }
+	}
+	/**
+	 * lock for exiting processes and begin a new process
+	 */
+	private Lock haltingLock = new Lock();
+	/** parent and children of this process. */
+	private UserProcess parent;
+	private Set<UserProcess> children;
+	private boolean ifExited = false;
+	private Integer returnVal = null;
+
+	/** monitor used to implement join */
+	private Lock joinLock = new Lock();
+	private Condition joinCV;
 
     /** The program being run by this process. */
     protected Coff coff;
@@ -888,5 +1053,8 @@ public class UserProcess {
     //Used to indicate the translation mode
     private static final int writeMode = 1;
     private static final int readMode = -1;
-    private static final int defaultMode = 0;
+	private static final int defaultMode = 0;
+	
+	// total number of running processes
+	private static int numProcesses = 0;
 }

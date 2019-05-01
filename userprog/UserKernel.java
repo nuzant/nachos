@@ -134,7 +134,18 @@ public class UserKernel extends ThreadedKernel {
 		memoryLock.release();
 		
 		return returnPages;
-	}
+    }
+    /**
+     * Free the pages in pageTable
+     */
+    public void freePages(TranslationEntry[] pageTable){
+        memoryLock.acquire();
+        for(TranslationEntry pte: pageTable){
+            freePhysicalPages.add(pte);
+            pte.valid = false;
+        }
+        memoryLock.release();
+    }
 	
     /**
      * Terminate this kernel. Never returns.
