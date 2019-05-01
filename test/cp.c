@@ -20,7 +20,6 @@ int main(int argc, char** argv)
     printf("Unable to open %s\n", argv[1]);
     return 1;
   }
-
   creat(argv[2]);
   dst = open(argv[2]);
   if (dst==-1) {

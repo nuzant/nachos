@@ -18,7 +18,7 @@ int main(void)
 	filedes = creat("hello.txt");
 	byteswrit = write(filedes, test, 4);
 	close(filedes);
-	filedes = open("hello.txt")
+	filedes = open("hello.txt");
 	bytesread = read(filedes, test + 1025, 4);
 	if (test[1025] != 29) {
 		printf("Error: test[1025] should be 29");

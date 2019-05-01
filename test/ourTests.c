@@ -7,7 +7,7 @@
 
 char buf[BUFSIZE], buf2[BUFSIZE], buf3[BUFSIZE], bigBuf[BIG], bigBuf1[BIG];
 
-char *cpargv[20]= {"me2.txt","me2copy.txt"}; //Todo (FC): Make syntax correct
+char *cpargv[]= {"cp","me2.txt","me2copy.txt"}; //Todo (FC): Make syntax correct
 
 
 int main(void)
@@ -30,13 +30,13 @@ int main(void)
 		printf("Error: could not make a file");
 		return 1;
 	}
-	printf("33\n");
+	//printf("33\n");
 	for (i = 0; i < 26; i++) {
 		buf[i] = 'a' + i;
 	}
 
 	status = write(fileDescr,buf,26);
-	printf("39\n");
+	//printf("39\n");
 	if (status == -1) {
 		printf("Error: could not write a file");
 		return 1;
@@ -44,12 +44,12 @@ int main(void)
 
 	//read the data back
 	status = read(fileDescr, buf2, 26);
-	printf("47\n");
+	//printf("47\n");
 	if (status == -1) {
 		printf("Error: unable to read data back from a file");
 		return 1;
 	}
-	printf("52\n");
+	//printf("52\n");
 	//close the file, and verify that we read back the correct data
 	status = close(fileDescr);
 	
@@ -57,24 +57,25 @@ int main(void)
 		printf("Error: unable to close the file");
 		return 1;
 	}
-	printf("60\n");
+	//printf("%s %s %s \n",cpargv[0],cpargv[1],cpargv[2]);
     //FC. COFF Check that exec is paging code properly
-	//exec("../test/cp", 2, cpargv);
-	printf("63\n");
+	//exec("cp.coff", 3, cpargv);
+	//printf("63\n");
 	//FC.reopen the file's copy
-    fileDescr = open("me2copy.txt");
-    if (fileDescr == -1) {
-        printf("Error: unable to reopen the file me2copy.txt. Exec('cp') did not work");
-        return 1;
-    }
-   
+    //fileDescr = open("me2copy.txt");
+    //if (fileDescr == -1) {
+        //printf("Error: unable to reopen the file me2copy.txt. Exec('cp') did not work\n");
+      //  return 1;
+    //}
+    //printf("70\n");
+	/*
     status = read(fileDescr,buf3,26);
 
     if (status == -1) {
         printf("Error: unable to reread the file me2copy.txt");
         return 1;
     }
-
+	printf("77\n");
     //FC.verify that me2copy has the correct data
     for (i=0; i < 26; i++) {
         if (buf3[i] != 'a' + i) {
@@ -196,8 +197,9 @@ int main(void)
 		printf("Error: could not close stdout");
 		return 1;
 	}
+	*/
 
-	printf("Success: All Tests Pass | Huzzahs all around!");
+	//printf("Success: All Tests Pass | Huzzahs all around!");
 
     return 0;
 }

@@ -4,7 +4,7 @@ import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
 
-import java.util.Set;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.io.EOFException;
 import java.util.LinkedList;
@@ -64,9 +64,10 @@ public class UserProcess {
      * @return	<tt>true</tt> if the program was successfully executed.
      */
     public boolean execute(String name, String[] args) {
-	if (!load(name, args))
-	    return false;
-	
+	if (!load(name, args)){
+		return false;
+	}
+
 	new UThread(this).setName(name).fork();
 
 	return true;
@@ -315,7 +316,8 @@ public class UserProcess {
 	    coff = new Coff(executable);
 	}
 	catch (EOFException e) {
-	    executable.close();
+		executable.close();
+		
 	    Lib.debug(dbgProcess, "\tcoff load failed");
 	    return false;
 	}
@@ -326,6 +328,7 @@ public class UserProcess {
 	    CoffSection section = coff.getSection(s);
 	    if (section.getFirstVPN() != numPages) {
 		coff.close();
+		
 		Lib.debug(dbgProcess, "\tfragmented executable");
 		return false;
 	    }
@@ -341,7 +344,8 @@ public class UserProcess {
 	    argsSize += 4 + argv[i].length + 1;
 	}
 	if (argsSize > pageSize) {
-	    coff.close();
+		coff.close();
+		
 	    Lib.debug(dbgProcess, "\targuments too long");
 	    return false;
 	}
@@ -511,20 +515,21 @@ public class UserProcess {
     private int openFile(int fileNamePointer, boolean create) {
 		//System.out.print("Successive entrance\n");
     	if (!validVirtualAddress(fileNamePointer))
-    		{/*System.out.print("506\n");*/return terminate();}
+    		{  return terminate();}
     		
     	int descriptor = getDescriptor();
-    	if (descriptor == -1)	{/*System.out.print("509\n");*/return -1;}
+    	if (descriptor == -1)	{ return -1;}
     	
     	String fileName = readVirtualMemoryString(fileNamePointer, maxLengthForString);
-    	
+		//System.out.println(this);
+		//System.out.println("filename: " + fileNamePointer + " " + fileName);
     	OpenFile file = ((UserKernel) Kernel.kernel).fileSystem.open(fileName, create);
     	
-    	if(file == null)	{/*System.out.print("515\n");*/return -1;}
+    	if(file == null)	{ System.out.print("a\n"); return -1;}
     	else
     	{
     		int canRef = fileRefRecord.reference(fileName);
-    		if (canRef == -1)	{/*System.out.print("519\n");*/return -1;}
+    		if (canRef == -1)	{  return -1;}
     	}
     	
     	fileTable[descriptor] = file;
@@ -623,6 +628,7 @@ public class UserProcess {
 	 * @return never return
 	 */
 	private int handleExit(int status){
+		//System.out.println("EXITING!" + PID);
 		// discard all files
 		for(int i = 0; i < fileTable.length; i++){
 			if(validFileDescriptor(i)){
@@ -644,7 +650,7 @@ public class UserProcess {
 			}
 		}
 		// clear the children of this process
-		children = null;
+		children.clear();
 		
 		// wake up all joiners
 		joinLock.acquire();
@@ -653,7 +659,8 @@ public class UserProcess {
 
 		// if last process, halt the machine
 		haltingLock.acquire();
-		if(numProcesses == 1){
+		numProcesses --;
+		if(numProcesses == 0){
 			Kernel.kernel.terminate();
 		}
 		haltingLock.release();
@@ -684,6 +691,7 @@ public class UserProcess {
 
 		//get filename
 		String fileNameString = readVirtualMemoryString(fileName, 256);
+		//System.out.println("fileNameString:" + fileNameString);
 		//if it is a legal filename
 		if(fileNameString == null || !fileNameString.endsWith(".coff"))
 			return -1;
@@ -695,13 +703,15 @@ public class UserProcess {
 		if(length_read != argc * 4)
 			// read length error
 			return -1;
-
+		//System.out.println("699");
 		//read arguments
 		for(int i = 0; i < argc; i++){
 			int pointer = Lib.bytesToInt(argvPtrs, i * 4);
 
 			if(!validVirtualAddress(pointer)) return -1;
 			arguments[i] = readVirtualMemoryString(pointer, 256);
+			
+			//System.out.println("argument:" + arguments[i]);
 		}
 
 		//child
@@ -726,18 +736,27 @@ public class UserProcess {
 		if(!validVirtualAddress(status)){
 			return -1;
 		}
+		//System.out.println("738");
 
 		UserProcess joinChild = findChild(pid);
+
+		//System.out.println("742");
 
 		//joining nonchild
 		if(joinChild == null){
 			return -1;
 		} 
 
+		//System.out.println("749");
+		
 		joinLock.acquire();
-		while(!ifExited)
+		while(!joinChild.ifExited){
+			//System.out.println(joinChild.ifExited);
 			joinCV.sleep();
+		}
 		joinLock.release();
+
+		//System.out.println("755");
 
 		if(joinChild.returnVal == null){
 			return 0;
@@ -795,13 +814,13 @@ public class UserProcess {
 	
 	/**
 	 * handle open()
-	 */
 	private OpenFile handleOpen(String name) {
 	
 	FileSystem fileSystem = Machine.stubFileSystem();
 	
 	return fileSystem.open(name, false);
 	}
+	*/
 
     private static final int
     syscallHalt = 0,
@@ -1011,16 +1030,16 @@ public class UserProcess {
 	/**
 	 * lock for exiting processes and begin a new process
 	 */
-	private Lock haltingLock = new Lock();
+	private static Lock haltingLock = new Lock();
 	/** parent and children of this process. */
 	private UserProcess parent;
-	private Set<UserProcess> children;
+	private HashSet<UserProcess> children = new HashSet<UserProcess>();
 	private boolean ifExited = false;
 	private Integer returnVal = null;
 
 	/** monitor used to implement join */
-	private Lock joinLock = new Lock();
-	private Condition joinCV;
+	private static Lock joinLock = new Lock();
+	private static Condition joinCV;
 
     /** The program being run by this process. */
     protected Coff coff;
