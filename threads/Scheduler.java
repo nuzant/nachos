@@ -160,7 +160,7 @@ public abstract class Scheduler {
      */
 
     public static void selfTest() {
-        System.out.println("\nEntering selfTest() for PrioritySchedule....\n");
+        System.out.println("\nEntering selfTest() for LotteryScheduler....\n");
         
 		ThreadQueue tq1 = ThreadedKernel.scheduler.newThreadQueue(true), tq2 = ThreadedKernel.scheduler.newThreadQueue(true), tq3 = ThreadedKernel.scheduler.newThreadQueue(true);
 		KThread kt_1 = new KThread(), kt_2 = new KThread(), kt_3 = new KThread(), kt_4 = new KThread();
@@ -172,33 +172,64 @@ public abstract class Scheduler {
 		kt_3.setName("T3");
 		kt_4.setName("T4");
 		boolean status = Machine.interrupt().disable();
-		
+        
+        System.out.println(tq1.getClass().toString());
+
 		tq1.waitForAccess(kt_1);
 		tq2.waitForAccess(kt_2);
 		tq3.waitForAccess(kt_3);
-		
+        
+        ThreadedKernel.scheduler.setPriority(kt_1, 10);
+        ThreadedKernel.scheduler.setPriority(kt_2, 10);
+        ThreadedKernel.scheduler.setPriority(kt_3, 10);
+        ThreadedKernel.scheduler.setPriority(kt_4, 10);
+
+        System.out.println("t1:"+ThreadedKernel.scheduler.getEffectivePriority(kt_1));
+        System.out.println("t2:"+ThreadedKernel.scheduler.getEffectivePriority(kt_2));
+        System.out.println("t3:"+ThreadedKernel.scheduler.getEffectivePriority(kt_3));
+        System.out.println("t4:"+ThreadedKernel.scheduler.getEffectivePriority(kt_4));
+        //System.out.println("t5:"+ThreadedKernel.scheduler.getEffectivePriority(kt_5));
+
 		tq1.acquire(kt_2);
 		tq2.acquire(kt_3);
-		tq3.acquire(kt_4);
-		
-		ThreadedKernel.scheduler.setPriority(kt_1, 6);
-		
-		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==6);
+        tq3.acquire(kt_4);
+        
+        System.out.println("t1:"+ThreadedKernel.scheduler.getEffectivePriority(kt_1));
+        System.out.println("t2:"+ThreadedKernel.scheduler.getEffectivePriority(kt_2));
+        System.out.println("t3:"+ThreadedKernel.scheduler.getEffectivePriority(kt_3));
+        System.out.println("t4:"+ThreadedKernel.scheduler.getEffectivePriority(kt_4));
+        //System.out.println("t5:"+ThreadedKernel.scheduler.getEffectivePriority(kt_5));
+        
+        //System.out.println(ThreadedKernel.scheduler.getEffectivePriority(kt_4));
+		//Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==40);
 		
         KThread kt_5 = new KThread();
         kt_5.setName("T5");
 		
-		ThreadedKernel.scheduler.setPriority(kt_5, 7);
+		ThreadedKernel.scheduler.setPriority(kt_5, 100);
 		
-		tq1.waitForAccess(kt_5);
+        tq1.waitForAccess(kt_5);
+        
+        System.out.println("t1:"+ThreadedKernel.scheduler.getEffectivePriority(kt_1));
+        System.out.println("t2:"+ThreadedKernel.scheduler.getEffectivePriority(kt_2));
+        System.out.println("t3:"+ThreadedKernel.scheduler.getEffectivePriority(kt_3));
+        System.out.println("t4:"+ThreadedKernel.scheduler.getEffectivePriority(kt_4));
+        System.out.println("t5:"+ThreadedKernel.scheduler.getEffectivePriority(kt_5));
+        
+		//Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_2)==110);
 		
-		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==7);
-		
-		tq1.nextThread();
-		
-		Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
-		
+        tq1.nextThread();
+        
+        System.out.println("t1:"+ThreadedKernel.scheduler.getEffectivePriority(kt_1));
+        System.out.println("t2:"+ThreadedKernel.scheduler.getEffectivePriority(kt_2));
+        System.out.println("t3:"+ThreadedKernel.scheduler.getEffectivePriority(kt_3));
+        System.out.println("t4:"+ThreadedKernel.scheduler.getEffectivePriority(kt_4));
+        System.out.println("t5:"+ThreadedKernel.scheduler.getEffectivePriority(kt_5));
+		//Lib.assertTrue(ThreadedKernel.scheduler.getEffectivePriority(kt_4)==1);
+        //KThread.finish();
         Machine.interrupt().restore(status);
         System.out.println("\nExiting.....\n");
-	}
+
+        
+    }
 }

@@ -147,6 +147,14 @@ public class PriorityScheduler extends Scheduler {
 		else return -1;
 	}
 
+	public int sumEffectivePriority(){
+		int sum = 0;
+		for(ThreadState t: queue){
+			sum += t.getEffectivePriority();
+		}
+		return sum;
+	}
+
 	public void waitForAccess(KThread thread) {
 	    Lib.assertTrue(Machine.interrupt().disabled());
 		getThreadState(thread).waitForAccess(this);
@@ -166,6 +174,7 @@ public class PriorityScheduler extends Scheduler {
 	}
 
 	public KThread nextThread() {
+		System.out.println("what");
 	    Lib.assertTrue(Machine.interrupt().disabled());
 		// implement me
 
@@ -445,9 +454,9 @@ public class PriorityScheduler extends Scheduler {
 		updateEffectivePriority();
 	}	
 	/** The priority queue waiting for this thread, when this thread acquired the access. */
-	private HashSet<PriorityQueue> waitingThis = new HashSet<PriorityQueue>();
+	protected HashSet<PriorityQueue> waitingThis = new HashSet<PriorityQueue>();
 	/** The priority queue that this thread is waiting in. */
-	private PriorityQueue waitingIn = null;
+	protected PriorityQueue waitingIn = null;
 	/** The thread with which this object is associated. */	   
 	protected KThread thread;
 	/** The priority and effective priority of the associated thread. */
